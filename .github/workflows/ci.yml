@@ -13,7 +13,7 @@ jobs:
       packages: write
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}/staysync-webapi
+      IMAGE_NAME: ${{ toLower(github.repository) }}/staysync-webapi
 
     steps:
       - uses: actions/checkout@v4
