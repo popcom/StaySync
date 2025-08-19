@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: write   # برای Push به GHCR
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ toLower(github.repository) }}/staysync-webapi
+      IMAGE: staysync-webapi   # حتماً lowercase باشد
 
     steps:
       - uses: actions/checkout@v4
@@ -22,27 +22,33 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # ↓↓↓ این مرحله owner/repo را lowercase می‌کند
+      - name: Normalize owner/repo to lowercase
+        run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+          echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+      # حالا در مراحل بعدی می‌توانی از ${{ env.OWNER_LC }} یا ${{ env.REPO_LC }} استفاده کنی
+
       - name: Restore
         run: dotnet restore StaySync.sln
 
       - name: Build (Release)
-        run: dotnet build StaySync.sln --no-restore -c Release
+        run: dotnet build StaySync.sln -c Release --no-restore
 
       - name: Test - Unit
         run: |
-          dotnet test tests/StaySync.UnitTests/StaySync.UnitTests.csproj --no-build -c Release
-          dotnet test tests/StaySync.WebApi.UnitTests/StaySync.WebApi.UnitTests.csproj --no-build -c Release
+          dotnet test tests/StaySync.UnitTests/StaySync.UnitTests.csproj -c Release --no-build
+          dotnet test tests/StaySync.WebApi.UnitTests/StaySync.WebApi.UnitTests.csproj -c Release --no-build
 
       - name: Test - Integration (Testcontainers)
-        run: dotnet test tests/StaySync.IntegrationTests/StaySync.IntegrationTests.csproj --no-build -c Release
+        run: dotnet test tests/StaySync.IntegrationTests/StaySync.IntegrationTests.csproj -c Release --no-build
 
-      # Create image and push on main
       - name: Login to GHCR
         if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: ${{ env.OWNER_LC }}         # ownerِ lowercase
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & Push Image
@@ -53,5 +59,5 @@ jobs:
           file: src/StaySync.WebApi/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.IMAGE }}:sha-${{ github.sha }}
