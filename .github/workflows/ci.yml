@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write   # اجازه‌ی Push ایمیج به GHCR
+      packages: write
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}/staysync-webapi
@@ -23,10 +23,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore StaySync.sln
 
       - name: Build (Release)
-        run: dotnet build --no-restore -c Release
+        run: dotnet build StaySync.sln --no-restore -c Release
 
       - name: Test - Unit
         run: |
@@ -36,7 +36,7 @@ jobs:
       - name: Test - Integration (Testcontainers)
         run: dotnet test tests/StaySync.IntegrationTests/StaySync.IntegrationTests.csproj --no-build -c Release
 
-      # فقط روی main ایمیج بساز و پوش کن
+      # Create image and push on main
       - name: Login to GHCR
         if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
