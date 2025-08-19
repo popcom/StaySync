@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-test-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # اجازه‌ی Push ایمیج به GHCR
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository }}/staysync-webapi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --no-restore -c Release
+
+      - name: Test - Unit
+        run: |
+          dotnet test tests/StaySync.UnitTests/StaySync.UnitTests.csproj --no-build -c Release
+          dotnet test tests/StaySync.WebApi.UnitTests/StaySync.WebApi.UnitTests.csproj --no-build -c Release
+
+      - name: Test - Integration (Testcontainers)
+        run: dotnet test tests/StaySync.IntegrationTests/StaySync.IntegrationTests.csproj --no-build -c Release
+
+      # فقط روی main ایمیج بساز و پوش کن
+      - name: Login to GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push Image
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/StaySync.WebApi/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
